@@ -1,0 +1,63 @@
+1.
+SELECT *
+FROM users
+ORDER BY created_at ASC
+LIMIT 5;
+
+2.
+SELECT
+    DATE_FORMAT(created_at, '%W') AS day_of_week,
+    COUNT(*) AS registration_count
+FROM
+    users
+GROUP BY
+    day_of_week
+ORDER BY
+    registration_count DESC
+LIMIT 1;
+
+3.
+SELECT SUM(total_posts_per_user) AS total_posts
+FROM (
+    SELECT user_id, COUNT(*) AS total_posts_per_user
+    FROM photos
+    GROUP BY user_id
+) user_posts;
+
+4.
+SELECT u.username, COUNT(p.image_url) AS photo_count
+FROM users u
+JOIN photos p ON u.id = p.user_id
+GROUP BY p.user_id
+ORDER BY photo_count DESC;
+
+5.
+SELECT t.tag_name, COUNT(*) AS hashtag_count
+FROM photo_tags pt
+JOIN tags t ON pt.tag_id = t.id
+GROUP BY t.tag_name
+ORDER BY hashtag_count DESC
+
+6.
+SELECT user_id as id, username, COUNT(DISTINCT photo_id) AS total_likes_by_user
+FROM likes
+join users on users.id=likes.user_id
+GROUP BY user_id
+HAVING total_likes_by_user = (SELECT COUNT(*) FROM photos);
+
+7.
+SELECT u.username, c.comment_text
+FROM users u
+JOIN (
+    SELECT user_id, comment_text, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY photo_id DESC) AS rn
+    FROM comments
+) c ON u.id = c.user_id AND c.rn = 1;
+
+8.
+SELECT
+    COUNT(DISTINCT CASE WHEN c.comment_text IS NULL THEN u.id END) AS users_never_commented,
+    COUNT(DISTINCT CASE WHEN c.comment_text IS NOT NULL THEN u.id END) AS users_with_comments,
+    COUNT(DISTINCT CASE WHEN c.comment_text IS NOT NULL THEN u.id END)/ COUNT(DISTINCT u.id) * 100 AS percentage
+FROM users u
+LEFT JOIN comments c ON u.id = c.user_id;
+
