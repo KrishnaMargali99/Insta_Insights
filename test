@@ -1,0 +1,1183 @@
+import pandas as pd
+import warnings
+import sys
+import io
+import db
+import mysql.connector
+warnings.filterwarnings("ignore")
+import traceback
+import re
+
+
+def connector():
+    return mysql.connector.connect(
+            host=db.HOST,
+            user=db.USERNAME,
+            passwd=db.PASSWORD,
+            database=db.DATABASE,
+            auth_plugin='mysql_native_password',
+            connect_timeout = 30
+            )
+
+def run_select_query(query):
+    output = []
+    isdone = True
+    try:
+        mydb = connector()
+        mycursor = mydb.cursor(dictionary=True,buffered=True)
+        try:
+            mycursor.execute("SET sql_mode=(SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))")
+            q = query.split(';')
+            for myq in q:
+                mycursor.execute(myq, multi=True)
+            obj = {}
+            for field in mycursor.description:
+                obj[field[0]] = None
+            results = mycursor.fetchall()
+            for d in results:
+                keys = obj.keys()
+                newobj = {}
+                for key in keys:
+                    newobj[key] = str(d[key])
+                output.append(newobj)
+        except Exception as e:
+            print(e)
+            isdone = False
+    except Exception as e:
+        print(e)
+        isdone = False
+    return output, isdone
+
+def read_data_from_csv(filename):
+    data=pd.read_csv('test_data/'+filename)
+    return data
+
+def test1():
+    import comments as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("comments.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+
+# def test1():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import comments as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("comments.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+def test2():
+    import follows as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("follows.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+# def test2():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import follows as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("follows.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+def test3():
+    import likes as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("likes.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+# def test3():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import likes as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("likes.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+def test4():
+    import photo_tags as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("photo_tags.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+# def test4():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import photo_tags as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("photo_tags.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+def test5():
+    import photos as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("photos.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+# def test5():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import photos as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("photos.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+def test6():
+    import tags as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("tags.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+# def test6():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import tags as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("tags.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+
+def test7():
+    import users as user
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+
+    output = None
+    try:
+        # output = user.load_dataset()
+        # output = pd.read_csv("agedistribution_2016_estimates.csv")
+        output = user.data_cleaning()
+        if not isinstance(output, pd.DataFrame):  # Check if output is a DataFrame
+            message2 = "Your output is not a DataFrame.Valid Dataframe is expected as Output"
+            print(message2)
+            print("Your Output: ")
+            print(output)
+            sys.stdout = sys.__stdout__
+            message += op.getvalue()
+            return ispassed, message
+    except Exception as e:
+        ispassed = False
+        message = str(e)
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        pass
+
+
+    try:
+        test_output = None
+        try:
+            test_output = read_data_from_csv("users.csv")
+            # test_output = None
+        except Exception as e:
+            ispassed = False
+            message = str(e)
+            print(message)
+            pass
+
+        if set(output.columns) != set(test_output.columns):
+            message1 = "Your columns in a dataframe do not match the expected dataframe columns"
+            print(message1)
+            print("Your columns:")
+            print(output.columns)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif output.shape[0] != test_output.shape[0]:
+            message1 = "No. of rows in your dataframe is not matching with the expected dataframe"
+            print(message1)
+            print("Your rows count:")
+            print(output.shape[0])
+            print("Expected rows count:")
+            print(test_output.shape[0])
+            print("Your Output: ")
+            print(output.head())
+            print("\nExpected Output: ")
+            print(test_output.head())
+        elif test_output.equals(output):
+            ispassed = True
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Your Dataframe: ", output.shape)
+            print("Your columns:")
+            print(output.columns)
+            print("Your Updated results: ")
+            print(output.head())
+            print("No. of Rows in Expected Dataframe: ", test_output.shape)
+            print("Expected columns:")
+            print(test_output.columns)
+            print("\nExpected Output: ")
+            print(test_output.head())
+        else:
+            pd.set_option('display.max_rows', None)
+            pd.set_option('display.max_columns', None)
+            diff = pd.concat([output.stack(), test_output.stack()], axis=1)
+            diff.columns = ['users', 'expected']
+            diff['equal'] = diff['users'].eq(diff['expected'])
+            diff = diff[diff['equal'] == False]
+
+            print("<b>Your Dataframe does not match the expected output</b>")
+            print("No. of Rows and columns in Your Dataframe: " + str(output.shape))
+            print("---------------------------------------------")
+            print("No. of Rows and columns in Expected Dataframe: " + str(test_output.shape))
+            print("<b>Data Differences:</b>")
+            print("*" * 25)
+            print(diff.drop_duplicates())
+
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        lines = traceback.format_exc().splitlines()
+        for line in lines:
+            line = line.replace("/home/project/", "")
+            print(re.sub(r'File ".*[\\/]([^\\/]+.py)"', r'File "\1"', line))
+        print("\nYour Output: ")
+        print(output)
+        print("\nExpected Output: ")
+        print("\nExpected columns:")
+        print(test_output.columns)
+        print(test_output.head())
+        pass
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+
+
+# def test7():
+#     op = io.StringIO()
+#     sys.stdout = op
+#     ispassed = False
+#     message = ""
+#     try:
+#         import users as user
+#         output = user.data_cleaning().columns
+#         test_output = read_data_from_csv("users.csv").columns
+#         if test_output.equals(output):
+#             ispassed = True
+#         if not ispassed:
+#             print("<b>Columns are not matching with expected result</b>")
+#         print("Your Output: ")
+#         print(output)
+#         print("\nExpected Output: ")
+#         print(test_output)
+#     except Exception as e:
+#         message = str(e)
+#         ispassed = False
+#         pass
+#     sys.stdout = sys.__stdout__
+#
+#     message += op.getvalue()
+#     return ispassed, message
+
+def test8():
+    op = io.StringIO()
+    sys.stdout = op
+    ispassed = False
+    message = ""
+    try:
+        table = "comments"
+        columns = "id, comment_text, user_id, photo_id, created_at"
+        print("<b>verifying table: " + str(table) + "</b>")
+        output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+        if isdone and len(output) == 10:
+            ispassed = True
+        else:
+            ispassed = False
+        if not ispassed:
+            print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+
+    try:
+        if ispassed:
+            table = "follows"
+            columns = "follower_id, followee_id, created_at"
+            print("<b>verifying table: " + str(table) + "</b>")
+            output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+            if isdone and len(output) == 10:
+                ispassed = True
+            else:
+                ispassed = False
+            if not ispassed:
+                print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+
+    try:
+        if ispassed:
+            table = "likes"
+            columns = "user_id, photo_id, created_at"
+            print("<b>verifying table: " + str(table) + "</b>")
+            output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+            if isdone and len(output) == 10:
+                ispassed = True
+            else:
+                ispassed = False
+            if not ispassed:
+                print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+
+    try:
+        if ispassed:
+            table = "users"
+            columns = "id, username, created_at"
+            print("<b>verifying table: " + str(table) + "</b>")
+            output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+            if isdone and len(output) == 10:
+                ispassed = True
+            else:
+                ispassed = False
+            if not ispassed:
+                print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+    
+    try:
+        if ispassed:
+            table = "photos"
+            columns = "id, image_url, user_id, created_date"
+            print("<b>verifying table: " + str(table) + "</b>")
+            output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+            if isdone and len(output) == 10:
+                ispassed = True
+            else:
+                ispassed = False
+            if not ispassed:
+                print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+
+    try:
+        if ispassed:
+            table = "tags"
+            columns = "id, tag_name, created_at"
+            print("<b>verifying table: " + str(table) + "</b>")
+            output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+            if isdone and len(output) == 10:
+                ispassed = True
+            else:
+                ispassed = False
+            if not ispassed:
+                print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+
+    try:
+        if ispassed:
+            table = "photo_tags"
+            columns = "photo_id, tag_id"
+            print("<b>verifying table: " + str(table) + "</b>")
+            output, isdone = run_select_query("select "+columns+" from "+table+" limit 10")
+            if isdone and len(output) == 10:
+                ispassed = True
+            else:
+                ispassed = False
+            if not ispassed:
+                print('<b>"'+table+'" table not found with fields "'+columns+'" in your database</b>')
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+        pass
+
+    sys.stdout = sys.__stdout__
+
+    message += op.getvalue()
+    return ispassed, message
+
+if __name__ == "__main__":
+    fileind = int(sys.argv[1])
+    #fileind = 8
+    print("Running Test case")
+    message = ''
+    ispassed = False
+    try:
+        if fileind == 1:
+            ispassed, message = test1()
+        elif fileind == 2:
+            ispassed, message = test2()
+        elif fileind == 3:
+            ispassed, message = test3()
+        elif fileind == 4:
+            ispassed, message = test4()
+        elif fileind == 5:
+            ispassed, message = test5()
+        elif fileind == 6:
+            ispassed, message = test6()
+        elif fileind == 7:
+            ispassed, message = test7()
+        elif fileind == 8:
+            ispassed, message = test8()
+    except Exception as e:
+        message = str(e)
+        ispassed = False
+
+    if ispassed:
+        print("------------- Test Case <b>Passed</b> -------------")
+    else:
+        print("------------- Test Case <b>Failed</b> -------------")
+    print(message)
